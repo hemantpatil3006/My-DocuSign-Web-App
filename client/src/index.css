@@ -1,0 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Allura&family=Bad+Script&family=Cookie&family=Courgette&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Homemade+Apple&family=Kaushan+Script&family=La+Belle+Aurore&family=Marck+Script&family=Meddon&family=Mrs+Saint+Delafield&family=Parisienne&family=Pinyon+Script&family=Sacramento&family=Satisfy&family=Yellowtail&display=swap');
+@import "tailwindcss";
+
+@theme {
+  @keyframes bounce-subtle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  @keyframes slide-up {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+  }
+}
+@custom-variant dark (&:where(.dark, .dark *));
+
+.animate-slide-up {
+    animation: slide-up 0.5s ease-out forwards;
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 2s infinite ease-in-out;
+}
