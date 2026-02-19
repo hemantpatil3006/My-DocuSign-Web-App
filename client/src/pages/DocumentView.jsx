@@ -215,7 +215,7 @@ const DocumentView = () => {
         if (!document) return null;
         const relativeUrl = document.status === 'Signed' && document.signedUrl ? document.signedUrl : document.originalUrl;
         const encodedPath = relativeUrl.split('/').map(part => encodeURIComponent(part)).join('/');
-        return `http://localhost:5001/${encodedPath}`;
+        return `${import.meta.env.VITE_BASE_URL || 'http://localhost:5001'}/${encodedPath}`;
     };
 
     const fetchDoc = async () => {
