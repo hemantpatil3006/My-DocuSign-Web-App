@@ -22,12 +22,25 @@ app.use((req, res, next) => {
 const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : 'http://localhost:5173';
 
 const corsOptions = {
-  origin: [
-    frontendUrl,
-    'https://docusignclone.netlify.app',
-    'http://localhost:3000',
-    'http://localhost:5173'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedPatterns = [
+      /\.netlify\.app$/,
+      /localhost/,
+      /127\.0\.0\.1/
+    ];
+
+    const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+    
+    if (isAllowed || origin === process.env.FRONTEND_URL) {
+      callback(null, true);
+    } else {
+      console.log(`[CORS Blocked] Origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
