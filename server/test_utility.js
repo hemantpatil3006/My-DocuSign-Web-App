@@ -2,25 +2,26 @@ require('dotenv').config();
 const { sendInvitationEmail } = require('./utils/email');
 
 async function testUtility() {
-    console.log('--- UTILITY TEST START ---');
+    console.log('--- UTILITY TEST START (SENDGRID) ---');
+    console.log(`From: ${process.env.SENDGRID_FROM_EMAIL}`);
     
     const mockData = {
         senderName: 'Test Sender',
-        recipientEmail: process.env.SMTP_USER, // Send to self
+        recipientEmail: 'patilhemant390@gmail.com', // Send to self
         recipientName: 'Test Recipient',
-        documentName: 'Test Document',
+        documentName: 'Test SendGrid Document',
         role: 'Signer',
-        link: 'https://example.com/test-link'
+        link: 'https://example.com/test-sendgrid'
     };
 
-    console.log('Calling sendInvitationEmail with mock data...');
+    console.log('Calling sendInvitationEmail with SendGrid API...');
     try {
         const result = await sendInvitationEmail(mockData);
         console.log(`Result: ${result}`);
         if (result) {
-            console.log('✓ Utility function successfully sent the email!');
+            console.log('✓ SendGrid API successfully sent the email!');
         } else {
-            console.log('✗ Utility function failed (returned false).');
+            console.log('✗ SendGrid API failed (returned false). Check the logs above.');
         }
     } catch (error) {
         console.error('✗ Utility function crashed!');
