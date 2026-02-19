@@ -10,31 +10,17 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 
-app.use(helmet({
-    crossOriginResourcePolicy: false,
-}));
-
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
     next();
 });
 
-const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : 'http://localhost:5173';
-
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedPatterns = [
-      /\.netlify\.app$/,
-      /localhost/,
-      /127\.0\.0\.1/
-    ];
-
-    const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
-    
-    if (isAllowed || origin === process.env.FRONTEND_URL) {
+    if (!origin || 
+        origin.includes('netlify.app') || 
+        origin.includes('localhost') || 
+        origin.includes('127.0.0.1')) {
       callback(null, true);
     } else {
       console.log(`[CORS Blocked] Origin: ${origin}`);
@@ -44,7 +30,13 @@ const corsOptions = {
   credentials: true,
   optionsSuccessStatus: 200
 };
+
 app.use(cors(corsOptions));
+
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: false,
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
