@@ -10,6 +10,8 @@ const ShareModal = ({ isOpen, onClose, documentId, documentName, onSuccess }) =>
     const [isSending, setIsSending] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [invitationLink, setInvitationLink] = useState('');
+    const [emailStatus, setEmailStatus] = useState('none'); // 'none', 'sent', 'failed'
+
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -21,9 +23,19 @@ const ShareModal = ({ isOpen, onClose, documentId, documentName, onSuccess }) =>
         setIsSending(true);
         try {
             const res = await api.post(`/docs/invite/${documentId}`, { name, email, role });
-            setInvitationLink(res.data.invitation.link);
+            const { invitation, emailSent } = res.data;
+            
+            setInvitationLink(invitation.link);
             setIsSuccess(true);
-            toast.success('Invitation sent successfully!');
+            
+            if (emailSent === false) {
+                setEmailStatus('failed');
+                toast.error('Link generated, but email failed');
+            } else {
+                setEmailStatus('sent');
+                toast.success('Invitation sent successfully!');
+            }
+            
             if (onSuccess) onSuccess();
         } catch (error) {
             console.error('Share error:', error);
@@ -40,7 +52,7 @@ const ShareModal = ({ isOpen, onClose, documentId, documentName, onSuccess }) =>
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-slide-up border border-slate-100 dark:border-slate-800">
                 <div className="bg-indigo-600 px-6 py-4 flex justify-between items-center text-white">
                     <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Send size={18} /> {isSuccess ? 'Invitation Sent' : 'Invite Guest'}
+                        <Send size={18} /> {isSuccess ? (emailStatus === 'failed' ? 'Invitation Saved' : 'Invitation Sent') : 'Invite Guest'}
                     </h3>
                     <button onClick={onClose} className="text-white/80 hover:text-white transition-colors bg-white/10 p-1 rounded-lg hover:bg-white/20">
                         <X size={20} />
@@ -51,13 +63,28 @@ const ShareModal = ({ isOpen, onClose, documentId, documentName, onSuccess }) =>
                     {isSuccess ? (
                         <div className="text-center py-4 space-y-4">
                             <div className="flex justify-center">
-                                <CheckCircle size={60} className="text-green-500 animate-bounce-subtle" />
+                                {emailStatus === 'failed' ? (
+                                    <div className="bg-amber-100 p-4 rounded-full">
+                                        <Mail size={40} className="text-amber-500" />
+                                    </div>
+                                ) : (
+                                    <CheckCircle size={60} className="text-green-500 animate-bounce-subtle" />
+                                )}
                             </div>
                             <div>
-                                <h4 className="text-xl font-bold text-slate-800 dark:text-slate-100">Success!</h4>
+                                <h4 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                                    {emailStatus === 'failed' ? 'Email Delivery Failed' : 'Success!'}
+                                </h4>
                                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                                    Invitation sent to <strong>{email}</strong>
+                                    {emailStatus === 'failed' 
+                                        ? `The link for ${email} is ready, but the email couldn't be sent.` 
+                                        : `Invitation sent to ${email}`}
                                 </p>
+                                {emailStatus === 'failed' && (
+                                    <div className="mt-2 text-xs font-bold text-amber-600 bg-amber-50 py-1 px-3 rounded-full inline-block border border-amber-100">
+                                        PLEASE SHARE THE LINK MANUALLY
+                                    </div>
+                                )}
                             </div>
                             <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
                                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Direct Link</p>
