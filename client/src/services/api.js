@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
-    timeout: 30000 // 30 seconds timeout to handle Render cold start
+    timeout: 120000 // 120 seconds to handle Render cold start (free tier can take 50+ seconds)
 });
 
 api.interceptors.request.use(

@@ -674,7 +674,9 @@ const GuestSign = () => {
                     ref={pdfContentRef} 
                 >
                     <Document
-                        file={`${import.meta.env.VITE_BASE_URL || 'http://localhost:5001'}/${docData.originalUrl}`}
+                        file={docData.originalUrl && docData.originalUrl.startsWith('http') 
+                            ? docData.originalUrl 
+                            : `${import.meta.env.VITE_BASE_URL || 'http://localhost:5001'}/${docData.originalUrl}`}
                         onLoadSuccess={onDocumentLoadSuccess}
                         loading={
                             <div className="p-32 flex flex-col items-center justify-center gap-3 text-slate-400">

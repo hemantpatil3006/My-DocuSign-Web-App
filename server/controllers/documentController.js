@@ -1,10 +1,10 @@
 const Document = require('../models/Document');
 const Invitation = require('../models/Invitation');
-const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 const { logAction } = require('./auditController');
 const { sendInvitationEmail } = require('../utils/email');
+const cloudinary = require('../utils/cloudinary');
+const streamifier = require('streamifier');
 
 exports.uploadDocument = async (req, res) => {
     console.log('\n========== UPLOAD REQUEST RECEIVED ==========');
@@ -25,10 +25,23 @@ exports.uploadDocument = async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
+        console.log('Uploading file to Cloudinary...');
+        const cloudinaryUrl = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                { resource_type: 'raw', folder: 'docusign-uploads', format: 'pdf' },
+                (error, result) => {
+                    if (error) return reject(error);
+                    resolve(result.secure_url);
+                }
+            );
+            streamifier.createReadStream(req.file.buffer).pipe(stream);
+        });
+        console.log('✓ Uploaded to Cloudinary:', cloudinaryUrl);
+
         const newDoc = new Document({
             owner: req.user.userId,
             filename: req.file.originalname,
-            originalUrl: `uploads/${req.file.filename}`,
+            originalUrl: cloudinaryUrl,
             status: 'Pending'
         });
 
@@ -183,24 +196,16 @@ exports.downloadDocument = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
-        const fileToDownload = (doc.status === 'Signed' && doc.signedUrl) ? doc.signedUrl : doc.originalUrl;
-        
-        if (!fs.existsSync(fileToDownload)) {
-            return res.status(404).json({ message: 'File not found on server' });
-        }
-
-        const downloadFilename = (doc.status === 'Signed' && doc.signedUrl) 
-            ? `signed-${doc.filename}` 
+        const fileUrl = (doc.status === 'Signed' && doc.signedUrl) ? doc.signedUrl : doc.originalUrl;
+        const downloadFilename = (doc.status === 'Signed' && doc.signedUrl)
+            ? `signed-${doc.filename}`
             : doc.filename;
-
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
-        
-        const fileStream = fs.createReadStream(fileToDownload);
-        fileStream.pipe(res);
 
         const { signerEmail } = req.query;
         await logAction(doc._id, 'DOWNLOAD', req, 'Downloaded document', signerEmail);
+
+        // Redirect to Cloudinary URL for download
+        res.redirect(fileUrl);
     } catch (error) {
         console.error('Download Document Error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -219,17 +224,19 @@ exports.deleteDocument = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized' });
         }
 
-        if (fs.existsSync(doc.originalUrl)) {
-            fs.unlinkSync(doc.originalUrl);
-        }
-        if (doc.signedUrl && fs.existsSync(doc.signedUrl)) {
-             fs.unlinkSync(doc.signedUrl);
-        }
+        // Delete from Cloudinary if URL is a Cloudinary URL
+        const deleteFromCloudinary = async (url) => {
+            if (url && url.includes('cloudinary.com')) {
+                const publicId = url.split('/').slice(-2).join('/').replace(/\.[^.]+$/, '');
+                try { await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' }); } catch (e) { console.error('Cloudinary delete error:', e.message); }
+            }
+        };
+        await deleteFromCloudinary(doc.originalUrl);
+        await deleteFromCloudinary(doc.signedUrl);
 
         await doc.deleteOne();
-
         res.json({ message: 'Document removed' });
-} catch (error) {
+    } catch (error) {
         console.error('Delete Document Error:', error);
         res.status(500).json({ message: 'Server error' });
     }

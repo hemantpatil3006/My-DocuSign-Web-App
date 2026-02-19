@@ -3,10 +3,11 @@ const Document = require('../models/Document');
 const User = require('../models/User');
 const Invitation = require('../models/Invitation');
 const { PDFDocument } = require('pdf-lib');
-const fs = require('fs');
-const path = require('path');
 const { logAction } = require('./auditController');
 const { signatureSchema, updateSignatureSchema } = require('../schemas/signatureSchema');
+const cloudinary = require('../utils/cloudinary');
+const https = require('https');
+const http = require('http');
 
 exports.addSignature = async (req, res) => {
     try {
@@ -290,8 +291,16 @@ exports.finalizeDocument = async (req, res) => {
             return res.status(400).json({ message: 'No signatures to finalize' });
         }
 
-        const pdfBytes = fs.readFileSync(doc.originalUrl);
-        const pdfDoc = await PDFDocument.load(pdfBytes);
+        const pdfBuffer = await new Promise((resolve, reject) => {
+            const protocol = doc.originalUrl.startsWith('https') ? https : http;
+            protocol.get(doc.originalUrl, (response) => {
+                const chunks = [];
+                response.on('data', (chunk) => chunks.push(chunk));
+                response.on('end', () => resolve(Buffer.concat(chunks)));
+                response.on('error', reject);
+            }).on('error', reject);
+        });
+        const pdfDoc = await PDFDocument.load(pdfBuffer);
         const pages = pdfDoc.getPages();
 
         const filteredSignatures = signatures.filter(sig => 
@@ -356,14 +365,27 @@ exports.finalizeDocument = async (req, res) => {
         console.log('Saving PDF...');
 
         const pdfBytesSaved = await pdfDoc.save();
-        console.log('✓ PDF saved, size:', pdfBytesSaved.length, 'bytes');
-        const signedFilename = `signed-${doc._id}-${doc.filename}`;
-        const signedPath = path.join('uploads', signedFilename);
-        
-        fs.writeFileSync(signedPath, pdfBytesSaved);
+        console.log('✓ PDF saved in memory, size:', pdfBytesSaved.length, 'bytes');
+
+        // Upload signed PDF to Cloudinary
+        const signedCloudinaryUrl = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                { resource_type: 'raw', folder: 'docusign-signed', format: 'pdf' },
+                (error, result) => {
+                    if (error) return reject(error);
+                    resolve(result.secure_url);
+                }
+            );
+            const { Readable } = require('stream');
+            const readable = new Readable();
+            readable.push(Buffer.from(pdfBytesSaved));
+            readable.push(null);
+            readable.pipe(stream);
+        });
+        console.log('✓ Signed PDF uploaded to Cloudinary:', signedCloudinaryUrl);
 
         doc.status = 'Signed';
-        doc.signedUrl = signedPath.replace(/\\/g, "/");
+        doc.signedUrl = signedCloudinaryUrl;
         await doc.save();
         
         console.log('✓ Document status updated to Signed');

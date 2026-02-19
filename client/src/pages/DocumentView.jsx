@@ -213,10 +213,14 @@ const DocumentView = () => {
 
     const getFileUrl = () => {
         if (!document) return null;
-        const relativeUrl = document.status === 'Signed' && document.signedUrl ? document.signedUrl : document.originalUrl;
-        const encodedPath = relativeUrl.split('/').map(part => encodeURIComponent(part)).join('/');
+        const fileUrl = document.status === 'Signed' && document.signedUrl ? document.signedUrl : document.originalUrl;
+        // If it's already a full URL (Cloudinary), use it directly
+        if (fileUrl && fileUrl.startsWith('http')) return fileUrl;
+        // Otherwise, prepend base URL for legacy local paths
+        const encodedPath = fileUrl.split('/').map(part => encodeURIComponent(part)).join('/');
         return `${import.meta.env.VITE_BASE_URL || 'http://localhost:5001'}/${encodedPath}`;
     };
+
 
     const fetchDoc = async () => {
         try {
