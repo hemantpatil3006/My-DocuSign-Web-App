@@ -44,13 +44,10 @@ JWT_REFRESH_SECRET=your_refresh_secret
 # Used to generate public invitation/reset links
 FRONTEND_URL=http://localhost:5173
 
-# Email (SMTP) - required if you want invitation/reset emails to actually send
-# Example for Gmail: SMTP_HOST=smtp.gmail.com, SMTP_PORT=465, SMTP_SECURE=true
-SMTP_HOST=
-SMTP_PORT=
-SMTP_SECURE=
-SMTP_USER=
-SMTP_PASS=
+# Email (SendGrid API) - Unified system for Invitations and Passwords
+# This uses HTTP (Port 443) which works on restrictive platforms like Render.
+SENDGRID_API_KEY=your_sendgrid_api_key
+SENDGRID_FROM_EMAIL=your_verified_sender_email
 ```
 
 ### 3. Run the Application

@@ -7,35 +7,19 @@ const cloudinary = require('../utils/cloudinary');
 const streamifier = require('streamifier');
 
 exports.uploadDocument = async (req, res) => {
-    console.log('\n========== UPLOAD REQUEST RECEIVED ==========');
-    
     // Check if Cloudinary is configured
     if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-        console.error('CRITICAL: Cloudinary environment variables are missing!');
+        console.error('[UPLOAD] CRITICAL: Cloudinary environment variables are missing!');
         return res.status(500).json({ 
-            message: 'Server configuration error: Cloudinary credentials missing',
-            details: 'Please add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to your environment variables.'
-        });
-    }
-
-    console.log('User ID:', req.user ? req.user.userId : 'UNDEFINED');
-    console.log('Has File:', !!req.file);
-    if (req.file) {
-        console.log('File details:', {
-            originalname: req.file.originalname,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-            path: req.file.path
+            message: 'Server configuration error: Cloudinary credentials missing'
         });
     }
 
     try {
         if (!req.file) {
-            console.error('Upload Error: No file provided by Multer');
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        console.log('Uploading file to Cloudinary...');
         const cloudinaryUrl = await new Promise((resolve, reject) => {
             const stream = cloudinary.uploader.upload_stream(
                 { resource_type: 'raw', type: 'upload', folder: 'docusign-uploads' },
@@ -46,7 +30,6 @@ exports.uploadDocument = async (req, res) => {
             );
             streamifier.createReadStream(req.file.buffer).pipe(stream);
         });
-        console.log('✓ Uploaded to Cloudinary:', cloudinaryUrl);
 
         const newDoc = new Document({
             owner: req.user.userId,
@@ -55,25 +38,16 @@ exports.uploadDocument = async (req, res) => {
             status: 'Pending'
         });
 
-        console.log('Saving document to DB...');
         await newDoc.save();
-        console.log('✓ Document saved to DB. ID:', newDoc._id);
-
         await logAction(newDoc._id, 'UPLOAD', req, `Uploaded ${newDoc.filename}`);
-        console.log('✓ Action logged. Sending success response.');
-        console.log('=============================================\n');
 
+        console.log(`[DOC] Upload success: ${newDoc.filename}`);
         res.status(201).json(newDoc);
     } catch (error) {
-        console.error('\n!!!!!!!!!! UPLOAD SERVER ERROR !!!!!!!!!!');
-        console.error('Error Name:', error.name);
-        console.error('Error Message:', error.message);
-        console.error('Stack:', error.stack);
-        console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
+        console.error('[UPLOAD] Server Error:', error.message);
         res.status(500).json({ 
             message: 'Server error during upload', 
-            error: error.message,
-            tip: 'Check your Cloudinary credentials on Render.' 
+            error: error.message
         });
     }
 };

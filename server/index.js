@@ -18,14 +18,6 @@ if (!fs.existsSync(uploadsDir)) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-
-// Request logging for debugging
-app.use((req, res, next) => {
-    console.log(`--- [Incoming Request] ${req.method} ${req.url} ---`);
-    console.log('Origin:', req.headers.origin);
-    next();
-});
-
 // Priority CORS configuration
 app.use(cors({
     origin: true, // Reflects the request origin

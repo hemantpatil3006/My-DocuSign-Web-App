@@ -4,6 +4,9 @@ const sgMail = require('@sendgrid/mail');
  * Send an invitation email via SendGrid API
  * This uses HTTP (port 443) which bypasses SMTP port blocks on Render.
  */
+/**
+ * Send an invitation email via SendGrid API
+ */
 const sendInvitationEmail = async ({
     senderName,
     recipientEmail,
@@ -16,18 +19,10 @@ const sendInvitationEmail = async ({
     const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'patilhemant390@gmail.com';
 
     if (!apiKey) {
-        const isProd = (process.env.NODE_ENV || '').toLowerCase() === 'production';
-        if (isProd) {
-            console.error('[EMAIL] SendGrid API Key is missing. Refusing to send in production.');
-            return false;
-        }
-
-        console.log('\n--- EMAIL SIMULATION (SendGrid) ---');
-        console.log(`To: ${recipientEmail}`);
-        console.log(`From: ${fromEmail}`);
+        console.log('\n--- EMAIL SIMULATION (Invitation) ---');
+        console.log(`To: ${recipientEmail} | From: ${fromEmail}`);
         console.log(`Subject: Invitation to ${role} document: ${documentName}`);
-        console.log(`Link: ${link}`);
-        console.log('------------------------\n');
+        console.log('-------------------------------------\n');
         return true;
     }
 
@@ -54,21 +49,61 @@ const sendInvitationEmail = async ({
     };
 
     try {
-        console.log(`[EMAIL] Attempting to send email via SendGrid to ${recipientEmail}...`);
+        console.log(`[EMAIL] Sending invitation to ${recipientEmail}...`);
         await sgMail.send(msg);
-        console.log(`[EMAIL] ✓ SendGrid email sent successfully!`);
         return true;
     } catch (error) {
-        console.error('[EMAIL] ✗ SendGrid error:', {
-            message: error.message,
-            code: error.code,
-            response: error.response?.body?.errors,
-            recipient: recipientEmail
-        });
+        console.error('[EMAIL] ✗ SendGrid error:', error.message);
+        return false;
+    }
+};
+
+/**
+ * Send a Password Reset email via SendGrid API
+ */
+const sendResetPasswordEmail = async (recipientEmail, resetUrl) => {
+    const apiKey = process.env.SENDGRID_API_KEY;
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'patilhemant390@gmail.com';
+
+    if (!apiKey) {
+        console.log('\n--- EMAIL SIMULATION (Password Reset) ---');
+        console.log(`To: ${recipientEmail} | URL: ${resetUrl}`);
+        console.log('------------------------------------------\n');
+        return true;
+    }
+
+    sgMail.setApiKey(apiKey);
+
+    const msg = {
+        to: recipientEmail,
+        from: fromEmail,
+        subject: 'Password Reset Request - DocuSign SaaS',
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <h2 style="color: #4f46e5;">Password Reset Request</h2>
+                <p>You are receiving this because you (or someone else) have requested the reset of the password for your account.</p>
+                <p>Please click on the following button to complete the process:</p>
+                <div style="margin: 30px 0; text-align: center;">
+                    <a href="${resetUrl}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
+                </div>
+                <p>If you did not request this, please ignore this email and your password will remain unchanged.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="font-size: 11px; color: #999;">Powered by Labmentix Project SecureSign</p>
+            </div>
+        `
+    };
+
+    try {
+        console.log(`[EMAIL] Sending password reset to ${recipientEmail}...`);
+        await sgMail.send(msg);
+        return true;
+    } catch (error) {
+        console.error('[EMAIL] ✗ SendGrid error:', error.message);
         return false;
     }
 };
 
 module.exports = {
-    sendInvitationEmail
+    sendInvitationEmail,
+    sendResetPasswordEmail
 };
