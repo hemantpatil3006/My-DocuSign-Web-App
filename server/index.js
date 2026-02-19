@@ -10,26 +10,32 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    console.log(`[CORS Check] ${req.method} ${req.url} - Origin: ${origin}`);
-    
-    // Nuclear CORS: Allow common project origins explicitly
-    if (origin && (origin.includes('netlify.app') || origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-        res.header('Access-Control-Allow-Origin', origin);
-        res.header('Access-Control-Allow-Credentials', 'true');
-        res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-    }
-
-    // Handle Preflight
-    if (req.method === 'OPTIONS') {
-        console.log(`[CORS Preflight] Handled for: ${origin}`);
-        return res.status(200).end();
-    }
-    
-    next();
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        time: new Date().toISOString(),
+        origin: req.headers.origin,
+        headers: res.getHeaders()
+    });
 });
+
+// CORS configuration
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // For debugging/initial deployment, allow all origins
+        // You can restrict this later by checking against a whitelist
+        callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}));
+
+// Pre-flight requests
+app.options('*', cors());
 
 app.use(helmet({
     crossOriginResourcePolicy: false,

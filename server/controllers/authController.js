@@ -24,8 +24,10 @@ const generateTokens = (user) => {
 exports.register = async (req, res) => {
     try {
         const { name, email, password } = req.body;
+        console.log(`--- [REGISTER ATTEMPT] Email: ${email} ---`);
 
         if (!name || !email || !password) {
+            console.log(`[REGISTER] Missing fields for: ${email}`);
             return res.status(400).json({ message: 'All fields are required' });
         }
 
@@ -33,9 +35,11 @@ exports.register = async (req, res) => {
         
         const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
+            console.log(`[REGISTER] User already exists: ${normalizedEmail}`);
             return res.status(400).json({ message: 'User already exists' });
         }
 
+        console.log(`[REGISTER] Hashing password...`);
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -45,11 +49,15 @@ exports.register = async (req, res) => {
             password: hashedPassword
         });
 
+        console.log(`[REGISTER] Saving new user...`);
         await newUser.save();
+        console.log(`[REGISTER] User saved: ${newUser._id}`);
 
 
+        console.log(`[REGISTER] Generating tokens...`);
         const { accessToken, refreshToken } = generateTokens(newUser);
 
+        console.log(`[REGISTER] Saving refresh token...`);
         await new RefreshToken({
             token: refreshToken,
             user: newUser._id,
@@ -57,7 +65,7 @@ exports.register = async (req, res) => {
             createdByIp: req.ip
         }).save();
 
-
+        console.log(`[REGISTER] Sending success response for: ${normalizedEmail}`);
         res.status(201).json({
             user: {
                 id: newUser._id,
@@ -70,7 +78,9 @@ exports.register = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Register Error:', error);
+        console.error('--- [REGISTER ERROR] ---');
+        console.error('Error message:', error.message);
+        console.error('Stack trace:', error.stack);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -79,32 +89,41 @@ exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
         const normalizedEmail = (email || '').toLowerCase().trim();
+        
+        console.log(`--- [LOGIN ATTEMPT] Email: ${normalizedEmail} ---`);
 
         const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
+            console.log(`[LOGIN] User not found: ${normalizedEmail}`);
             return res.status(404).json({ 
                 message: "We couldn't find an account with that email. Please sign up to create one." 
             });
         }
+        console.log(`[LOGIN] User found: ${user._id}`);
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            console.log(`[LOGIN] Password mismatch for: ${normalizedEmail}`);
             return res.status(401).json({ 
                 message: 'Invalid email or password. Please try again.' 
             });
         }
+        console.log(`[LOGIN] Password matched for: ${normalizedEmail}`);
 
-
+        console.log(`[LOGIN] Generating tokens...`);
         const { accessToken, refreshToken } = generateTokens(user);
+        console.log(`[LOGIN] Tokens generated successfully.`);
 
+        console.log(`[LOGIN] Saving refresh token to DB...`);
         await new RefreshToken({
             token: refreshToken,
             user: user._id,
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             createdByIp: req.ip
         }).save();
+        console.log(`[LOGIN] Refresh token saved.`);
 
-
+        console.log(`[LOGIN] Sending success response for: ${normalizedEmail}`);
         res.json({
             user: {
                 id: user._id,
@@ -117,7 +136,10 @@ exports.login = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Login Error:', error);
+        console.error('--- [LOGIN ERROR] ---');
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Stack trace:', error.stack);
         res.status(500).json({ message: 'Server error' });
     }
 };
