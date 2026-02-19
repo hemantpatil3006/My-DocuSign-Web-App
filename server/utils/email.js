@@ -12,33 +12,25 @@ const sendInvitationEmail = async ({
     let transporter;
     
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-        console.log(`[EMAIL] Initializing SMTP for ${process.env.SMTP_USER}`);
+        console.log(`[EMAIL] Initializing SMTP for ${process.env.SMTP_USER} via ${process.env.SMTP_HOST}`);
+        const isGmail = process.env.SMTP_HOST.includes('gmail.com');
         
         const config = {
-            // Strict timeouts
-            connectionTimeout: 10000, 
-            greetingTimeout: 10000,
-            socketTimeout: 15000,
+            // Gmail on 465 is often more reliable on Render than 587
+            host: isGmail ? 'smtp.gmail.com' : process.env.SMTP_HOST,
+            port: isGmail ? 465 : (Number(process.env.SMTP_PORT) || 587),
+            secure: isGmail ? true : (process.env.SMTP_SECURE === 'true'),
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS
+            },
+            // Timeouts to prevent hanging
+            connectionTimeout: 15000, 
+            greetingTimeout: 15000,
+            socketTimeout: 20000,
             logger: true,
             debug: true
         };
-
-        // If using Gmail, 'service' parameter is MUCH more reliable
-        if (process.env.SMTP_HOST.includes('gmail.com')) {
-            config.service = 'gmail';
-            config.auth = {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
-            };
-        } else {
-            config.host = process.env.SMTP_HOST;
-            config.port = Number(process.env.SMTP_PORT) || 587;
-            config.secure = process.env.SMTP_SECURE === 'true';
-            config.auth = {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
-            };
-        }
 
         transporter = nodemailer.createTransport(config);
     } else {
