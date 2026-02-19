@@ -11,27 +11,25 @@ const PORT = process.env.PORT || 5000;
 
 
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+    const origin = req.headers.origin;
+    console.log(`[CORS Check] ${req.method} ${req.url} - Origin: ${origin}`);
+    
+    // Nuclear CORS: Allow common project origins explicitly
+    if (origin && (origin.includes('netlify.app') || origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    }
+
+    // Handle Preflight
+    if (req.method === 'OPTIONS') {
+        console.log(`[CORS Preflight] Handled for: ${origin}`);
+        return res.status(200).end();
+    }
+    
     next();
 });
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || 
-        origin.includes('netlify.app') || 
-        origin.includes('localhost') || 
-        origin.includes('127.0.0.1')) {
-      callback(null, true);
-    } else {
-      console.log(`[CORS Blocked] Origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-
-app.use(cors(corsOptions));
 
 app.use(helmet({
     crossOriginResourcePolicy: false,
