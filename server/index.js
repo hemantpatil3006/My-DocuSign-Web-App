@@ -14,12 +14,17 @@ app.use(helmet({
     crossOriginResourcePolicy: false,
 }));
 
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+    next();
+});
+
 const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : 'http://localhost:5173';
 
 const corsOptions = {
   origin: [
     frontendUrl,
-    `${frontendUrl}/`,
+    'https://docusignclone.netlify.app',
     'http://localhost:3000',
     'http://localhost:5173'
   ],
@@ -27,11 +32,6 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
-
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
-    next();
-});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
