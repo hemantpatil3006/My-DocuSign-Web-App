@@ -12,25 +12,24 @@ const sendInvitationEmail = async ({
     let transporter;
     
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-        console.log(`[EMAIL] Initializing SMTP transport for ${process.env.SMTP_USER} via ${process.env.SMTP_HOST}`);
+        console.log(`[EMAIL] Initializing SMTP for ${process.env.SMTP_USER}. Using ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`);
+        
         const config = {
             host: process.env.SMTP_HOST,
-            port: process.env.SMTP_PORT || 587,
+            port: Number(process.env.SMTP_PORT) || 587,
             secure: process.env.SMTP_SECURE === 'true',
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS
             },
-            // Add timeouts to prevent 120s hangs
-            connectionTimeout: 10000, // 10 seconds
-            greetingTimeout: 10000,
-            socketTimeout: 15000,    // 15 seconds
+            // Strict timeouts to avoid Axios 120s timeout
+            connectionTimeout: 5000, 
+            greetingTimeout: 5000,
+            socketTimeout: 10000,
+            // Enable internal debugging to show logs in Render
+            logger: true,
+            debug: true
         };
-
-        // If using Gmail, 'service' parameter is often more reliable
-        if (process.env.SMTP_HOST.includes('gmail.com')) {
-            config.service = 'gmail';
-        }
 
         transporter = nodemailer.createTransport(config);
     } else {
