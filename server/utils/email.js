@@ -27,6 +27,8 @@ const sendInvitationEmail = async ({
                 user: smtpUser,
                 pass: smtpPass
             },
+            // Force IPv4 as Render has issues routing IPv6 to Gmail
+            family: 4, 
             connectionTimeout: 15000, 
             greetingTimeout: 15000,
             socketTimeout: 20000,
