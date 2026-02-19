@@ -8,6 +8,16 @@ const streamifier = require('streamifier');
 
 exports.uploadDocument = async (req, res) => {
     console.log('\n========== UPLOAD REQUEST RECEIVED ==========');
+    
+    // Check if Cloudinary is configured
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+        console.error('CRITICAL: Cloudinary environment variables are missing!');
+        return res.status(500).json({ 
+            message: 'Server configuration error: Cloudinary credentials missing',
+            details: 'Please add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to your environment variables.'
+        });
+    }
+
     console.log('User ID:', req.user ? req.user.userId : 'UNDEFINED');
     console.log('Has File:', !!req.file);
     if (req.file) {
@@ -28,7 +38,7 @@ exports.uploadDocument = async (req, res) => {
         console.log('Uploading file to Cloudinary...');
         const cloudinaryUrl = await new Promise((resolve, reject) => {
             const stream = cloudinary.uploader.upload_stream(
-                { resource_type: 'raw', folder: 'docusign-uploads', format: 'pdf' },
+                { resource_type: 'auto', folder: 'docusign-uploads' },
                 (error, result) => {
                     if (error) return reject(error);
                     resolve(result.secure_url);
@@ -60,7 +70,11 @@ exports.uploadDocument = async (req, res) => {
         console.error('Error Message:', error.message);
         console.error('Stack:', error.stack);
         console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n');
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ 
+            message: 'Server error during upload', 
+            error: error.message,
+            tip: 'Check your Cloudinary credentials on Render.' 
+        });
     }
 };
 
