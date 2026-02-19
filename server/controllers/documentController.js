@@ -382,15 +382,31 @@ exports.inviteGuest = async (req, res) => {
 
         await logAction(doc._id, 'SHARE', req, `Invited ${name} (${email}) as ${role}`);
 
+        if (!emailSent) {
+            console.error(`[INVITE] Invitation recorded but email to ${email} failed.`);
+            return res.status(200).json({ 
+                message: 'Invitation saved, but email delivery failed', 
+                status: 'partial_success',
+                emailSent: false,
+                invitation: {
+                    id: invitation._id,
+                    email: invitation.email,
+                    role: invitation.role,
+                    link
+                }
+            });
+        }
+
         res.status(201).json({ 
             message: 'Invitation sent successfully', 
+            status: 'success',
+            emailSent: true,
             invitation: {
                 id: invitation._id,
                 email: invitation.email,
                 role: invitation.role,
                 link
-            },
-            emailSent
+            }
         });
     } catch (error) {
         console.error('Invite Guest Error:', error);

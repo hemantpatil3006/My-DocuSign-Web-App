@@ -52,10 +52,11 @@ const sendInvitationEmail = async ({
         return true; 
     }
 
+    const timestamp = new Date().toLocaleTimeString();
     const mailOptions = {
         from: `"Labmentix Project" <${process.env.SMTP_USER}>`,
         to: recipientEmail,
-        subject: `Invitation to ${role} document: ${documentName}`,
+        subject: `[${timestamp}] Invitation to ${role} document: ${documentName}`,
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; rounded: 8px;">
                 <h2 style="color: #4f46e5;">Document Invitation</h2>
