@@ -370,7 +370,7 @@ exports.finalizeDocument = async (req, res) => {
         // Upload signed PDF to Cloudinary
         const signedCloudinaryUrl = await new Promise((resolve, reject) => {
             const stream = cloudinary.uploader.upload_stream(
-                { resource_type: 'auto', folder: 'docusign-signed' },
+                { resource_type: 'raw', type: 'upload', folder: 'docusign-signed' },
                 (error, result) => {
                     if (error) return reject(error);
                     resolve(result.secure_url);
