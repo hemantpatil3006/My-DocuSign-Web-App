@@ -28,7 +28,7 @@ exports.uploadDocument = async (req, res) => {
         const newDoc = new Document({
             owner: req.user.userId,
             filename: req.file.originalname,
-            originalUrl: req.file.path.replace(/\\/g, "/"),
+            originalUrl: `uploads/${req.file.filename}`,
             status: 'Pending'
         });
 
