@@ -13,15 +13,18 @@ const sendInvitationEmail = async ({
     const smtpHost = process.env.SMTP_HOST;
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
-    const smtpPort = Number(process.env.SMTP_PORT);
-    const smtpSecure = process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465';
+    
+    // Switch to 587 as port 465 is often blocked on cloud providers like Render
+    const isGmail = smtpHost && smtpHost.includes('gmail.com');
+    const smtpPort = isGmail ? 587 : (Number(process.env.SMTP_PORT) || 587);
+    const smtpSecure = isGmail ? false : (process.env.SMTP_SECURE === 'true');
 
     if (smtpHost && smtpUser && smtpPass) {
-        console.log(`[EMAIL] Initializing SMTP for ${smtpUser} via ${smtpHost}`);
+        console.log(`[EMAIL] Initializing SMTP for ${smtpUser} via ${smtpHost} on port ${smtpPort}`);
         
         const config = {
             host: smtpHost,
-            port: smtpPort || (smtpSecure ? 465 : 587),
+            port: smtpPort,
             secure: smtpSecure,
             auth: {
                 user: smtpUser,
