@@ -31,7 +31,13 @@ const Login = () => {
             toast.success('Welcome back!');
             navigate('/dashboard');
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Login failed');
+            console.error('Login detailed error:', {
+                message: error.message,
+                status: error.response?.status,
+                data: error.response?.data,
+                config: error.config?.url
+            });
+            toast.error(error.response?.data?.message || 'Login failed. Please check your connection or try again later.');
         }
     };
 
