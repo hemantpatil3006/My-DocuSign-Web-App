@@ -12,15 +12,27 @@ const sendInvitationEmail = async ({
     let transporter;
     
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-        transporter = nodemailer.createTransport({
+        console.log(`[EMAIL] Initializing SMTP transport for ${process.env.SMTP_USER} via ${process.env.SMTP_HOST}`);
+        const config = {
             host: process.env.SMTP_HOST,
             port: process.env.SMTP_PORT || 587,
             secure: process.env.SMTP_SECURE === 'true',
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS
-            }
-        });
+            },
+            // Add timeouts to prevent 120s hangs
+            connectionTimeout: 10000, // 10 seconds
+            greetingTimeout: 10000,
+            socketTimeout: 15000,    // 15 seconds
+        };
+
+        // If using Gmail, 'service' parameter is often more reliable
+        if (process.env.SMTP_HOST.includes('gmail.com')) {
+            config.service = 'gmail';
+        }
+
+        transporter = nodemailer.createTransport(config);
     } else {
         // Fallback to a log for testing if no SMTP is configured
         console.log('\n--- EMAIL SIMULATION ---');
@@ -53,12 +65,17 @@ const sendInvitationEmail = async ({
     };
 
     try {
-        await transporter.sendMail(mailOptions);
+        console.log(`[EMAIL] Attempting to send email to ${recipientEmail}...`);
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[EMAIL] ✓ Email sent successfully! MessageID: ${info.messageId}`);
         return true;
     } catch (error) {
-        console.error('Email send error:', error);
+        console.error('[EMAIL] ✗ Email send error:', error.message);
+        console.error('[EMAIL] Error Code:', error.code);
+        console.error('[EMAIL] Command:', error.command);
         return false;
     }
+
 };
 
 module.exports = {
