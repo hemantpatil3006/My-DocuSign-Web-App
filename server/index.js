@@ -9,6 +9,23 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Request logging for debugging
+app.use((req, res, next) => {
+    console.log(`--- [Incoming Request] ${req.method} ${req.url} ---`);
+    console.log('Origin:', req.headers.origin);
+    next();
+});
+
+// Priority CORS configuration
+app.use(cors({
+    origin: true, // Reflects the request origin
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}));
+app.options('*', cors());
+
+
 
 app.get('/health', (req, res) => {
     res.json({ 
@@ -19,23 +36,6 @@ app.get('/health', (req, res) => {
     });
 });
 
-// CORS configuration
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        
-        // For debugging/initial deployment, allow all origins
-        // You can restrict this later by checking against a whitelist
-        callback(null, true);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
-}));
-
-// Pre-flight requests
-app.options('*', cors());
 
 app.use(helmet({
     crossOriginResourcePolicy: false,
