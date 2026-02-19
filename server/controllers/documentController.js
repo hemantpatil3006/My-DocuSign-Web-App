@@ -370,6 +370,8 @@ exports.inviteGuest = async (req, res) => {
         // Generate invitation link
         const link = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/sign/${token}`;
 
+        console.log(`[DEBUG] inviteGuest: Preparing email to ${email} (Role: ${role}, Link: ${link})`);
+
         // Send email
         const emailSent = await sendInvitationEmail({
             senderName: doc.owner.name,

@@ -8,23 +8,25 @@ const sendInvitationEmail = async ({
     role,
     link
 }) => {
-    // For demo/development, if SMTP credentials are not provided, we can use Ethereal
     let transporter;
     
-    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-        console.log(`[EMAIL] Initializing SMTP for ${process.env.SMTP_USER} via ${process.env.SMTP_HOST}`);
-        const isGmail = process.env.SMTP_HOST.includes('gmail.com');
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+    const smtpPort = Number(process.env.SMTP_PORT);
+    const smtpSecure = process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465';
+
+    if (smtpHost && smtpUser && smtpPass) {
+        console.log(`[EMAIL] Initializing SMTP for ${smtpUser} via ${smtpHost}`);
         
         const config = {
-            // Gmail on 465 is often more reliable on Render than 587
-            host: isGmail ? 'smtp.gmail.com' : process.env.SMTP_HOST,
-            port: isGmail ? 465 : (Number(process.env.SMTP_PORT) || 587),
-            secure: isGmail ? true : (process.env.SMTP_SECURE === 'true'),
+            host: smtpHost,
+            port: smtpPort || (smtpSecure ? 465 : 587),
+            secure: smtpSecure,
             auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
+                user: smtpUser,
+                pass: smtpPass
             },
-            // Timeouts to prevent hanging
             connectionTimeout: 15000, 
             greetingTimeout: 15000,
             socketTimeout: 20000,
@@ -33,12 +35,29 @@ const sendInvitationEmail = async ({
         };
 
         transporter = nodemailer.createTransport(config);
+
+        try {
+            await transporter.verify();
+            console.log('[EMAIL] ✓ SMTP connection verified');
+        } catch (verifyError) {
+            console.error('[EMAIL] ✗ SMTP verification failed:', {
+                message: verifyError.message,
+                code: verifyError.code,
+                command: verifyError.command,
+                stack: verifyError.stack
+            });
+            return false;
+        }
     } else {
-        // Fallback to a log for testing if no SMTP is configured
+        const isProd = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+        if (isProd) {
+            console.error('[EMAIL] SMTP is not configured. (Missing SMTP_HOST/USER/PASS)');
+            return false;
+        }
+
         console.log('\n--- EMAIL SIMULATION ---');
         console.log(`To: ${recipientEmail}`);
         console.log(`Subject: Invitation to ${role} document: ${documentName}`);
-        console.log(`Body: Hello ${recipientName}, ${senderName} has invited you to ${role} the document "${documentName}".`);
         console.log(`Link: ${link}`);
         console.log('------------------------\n');
         return true; 
@@ -46,11 +65,11 @@ const sendInvitationEmail = async ({
 
     const timestamp = new Date().toLocaleTimeString();
     const mailOptions = {
-        from: `"Labmentix Project" <${process.env.SMTP_USER}>`,
+        from: `"Labmentix Project" <${smtpUser}>`,
         to: recipientEmail,
         subject: `[${timestamp}] Invitation to ${role} document: ${documentName}`,
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; rounded: 8px;">
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
                 <h2 style="color: #4f46e5;">Document Invitation</h2>
                 <p>Hello <strong>${recipientName}</strong>,</p>
                 <p><strong>${senderName}</strong> has invited you to <strong>${role}</strong> the document: <strong>${documentName}</strong>.</p>
@@ -71,12 +90,15 @@ const sendInvitationEmail = async ({
         console.log(`[EMAIL] ✓ Email sent successfully! MessageID: ${info.messageId}`);
         return true;
     } catch (error) {
-        console.error('[EMAIL] ✗ Email send error:', error.message);
-        console.error('[EMAIL] Error Code:', error.code);
-        console.error('[EMAIL] Command:', error.command);
+        console.error('[EMAIL] ✗ Email send error:', {
+            message: error.message,
+            code: error.code,
+            command: error.command,
+            stack: error.stack,
+            recipient: recipientEmail
+        });
         return false;
     }
-
 };
 
 module.exports = {

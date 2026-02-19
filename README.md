@@ -40,6 +40,17 @@ PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 JWT_REFRESH_SECRET=your_refresh_secret
+
+# Used to generate public invitation/reset links
+FRONTEND_URL=http://localhost:5173
+
+# Email (SMTP) - required if you want invitation/reset emails to actually send
+# Example for Gmail: SMTP_HOST=smtp.gmail.com, SMTP_PORT=465, SMTP_SECURE=true
+SMTP_HOST=
+SMTP_PORT=
+SMTP_SECURE=
+SMTP_USER=
+SMTP_PASS=
 ```
 
 ### 3. Run the Application
