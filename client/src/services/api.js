@@ -2,11 +2,13 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
+    timeout: 10000 // 10 seconds timeout
 });
 
 api.interceptors.request.use(
     (config) => {
+        console.log(`[API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
         const token = localStorage.getItem('accessToken');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
