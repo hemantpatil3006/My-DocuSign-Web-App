@@ -354,8 +354,21 @@ const GuestSign = () => {
         if (!sig) return;
 
         try {
+            // Determine dynamic height based on aspect ratio
+            const img = new Image();
+            img.src = signatureData;
+            await new Promise((resolve) => {
+                img.onload = resolve;
+            });
+
+            const aspectRatio = img.height / img.width;
             const actualWidth = pdfContentRef.current?.offsetWidth || pdfWidth;
             const scale = 800 / actualWidth;
+            
+            // Re-calculate height based on aspect ratio of the generated image
+            const currentWidthOnDoc = sig.width * scale;
+            const newHeightOnDoc = currentWidthOnDoc * aspectRatio;
+
             const normalizedX = sig.x * scale;
             const normalizedY = sig.y * scale;
 
@@ -363,11 +376,17 @@ const GuestSign = () => {
                 signatureData,
                 page: pageNumber,
                 x: normalizedX,
-                y: normalizedY
+                y: normalizedY,
+                width: currentWidthOnDoc,
+                height: newHeightOnDoc
             });
 
             setSignatures(prev => prev.map(s => 
-                s.id === currentSignatureId ? { ...s, signatureData } : s
+                s.id === currentSignatureId ? { 
+                    ...s, 
+                    signatureData, 
+                    height: (sig.width * aspectRatio) // Update local height to match aspect ratio
+                } : s
             ));
             setIsModalOpen(false);
             toast.success('Signature updated');
