@@ -8,6 +8,7 @@ const { signatureSchema, updateSignatureSchema } = require('../schemas/signature
 const cloudinary = require('../utils/cloudinary');
 const https = require('https');
 const http = require('http');
+const { emitDocumentUpdate } = require('../socket');
 
 exports.addSignature = async (req, res) => {
     try {
@@ -21,7 +22,7 @@ exports.addSignature = async (req, res) => {
         }
 
         const { documentId, page, x, y, width, height, signatureData, signerEmail } = validatedData.data;
-        const { token } = req.query;
+        const token = req.query?.token || req.guestToken;
 
         const doc = await Document.findById(documentId);
         if (!doc) return res.status(404).json({ message: 'Document not found' });
@@ -74,6 +75,7 @@ exports.addSignature = async (req, res) => {
         console.log('--- SIGNATURE RESULT ID:', signature._id);
 
         await logAction(documentId, 'SIGN', req, `Placed signature on page ${page} (${normalizedEmail || userId})`, normalizedEmail);
+        emitDocumentUpdate(documentId, { action: 'SIGN', signer: normalizedEmail || userId });
         res.status(201).json(signature);
     } catch (error) {
         console.error('Add Signature Error:', error);
@@ -84,7 +86,7 @@ exports.addSignature = async (req, res) => {
 exports.getSignatures = async (req, res) => {
     try {
         const { docId } = req.params;
-        const { token } = req.query;
+        const token = req.query?.token || req.guestToken;
 
         const doc = await Document.findById(docId);
         if (!doc) return res.status(404).json({ message: 'Document not found' });
@@ -393,6 +395,7 @@ exports.finalizeDocument = async (req, res) => {
         
         const { signerEmail } = req.body;
         await logAction(documentId, 'FINALIZE', req, 'Document finalized with signatures', signerEmail);
+        emitDocumentUpdate(documentId, { action: 'FINALIZE', status: 'Signed' });
 
         res.json({ message: 'Document finalized', document: doc });
 

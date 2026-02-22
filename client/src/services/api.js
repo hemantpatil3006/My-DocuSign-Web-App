@@ -32,7 +32,14 @@ api.interceptors.response.use(
                 if (!refreshToken) {
                      localStorage.removeItem('accessToken');
                      localStorage.removeItem('refreshToken');
-                     window.location.href = '/login';
+                     
+                     // Avoid redirecting to login if user is on a guest or public page
+                     const isPublicPage = window.location.pathname.startsWith('/sign/') || 
+                                         window.location.pathname.startsWith('/reset-password/');
+                                         
+                     if (!isPublicPage) {
+                        window.location.href = '/login';
+                     }
                      return Promise.reject(error);
                 }
                 
@@ -52,7 +59,14 @@ api.interceptors.response.use(
             } catch (err) {
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
-                window.location.href = '/login';
+                
+                // Avoid redirecting to login if user is on a guest or public page
+                const isPublicPage = window.location.pathname.startsWith('/sign/') || 
+                                    window.location.pathname.startsWith('/reset-password/');
+
+                if (!isPublicPage) {
+                    window.location.href = '/login';
+                }
             }
         }
         

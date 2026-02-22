@@ -1,11 +1,35 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { DndContext, useDraggable, MouseSensor, TouchSensor, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import api from '../services/api';
 import SignatureModal from '../components/SignatureModal';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import ShareModal from '../components/ShareModal';
-import { Save, FileCheck, History, ArrowLeft, Plus, X, Trash2, Share2, Download, AlertCircle, Shield, PenTool, Loader2, UserPlus, CheckCircle, Clock } from 'lucide-react';
+import { 
+    Download, 
+    CheckCircle, 
+    Clock, 
+    User, 
+    FileText, 
+    ChevronLeft, 
+    Share2, 
+    History,
+    AlertCircle,
+    Copy,
+    Check,
+    ArrowLeft,
+    Plus,
+    X,
+    Trash2,
+    Save,
+    FileCheck,
+    Shield,
+    PenTool,
+    Loader2,
+    UserPlus
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -41,7 +65,6 @@ const DraggableSignature = ({ sig, pageNumber, onDelete, isReadOnly, onEdit, onR
         touchAction: 'none', 
     };
 
-    
     const handleResizeStart = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -137,7 +160,12 @@ const DraggableSignature = ({ sig, pageNumber, onDelete, isReadOnly, onEdit, onR
 
 const DocumentView = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const socket = useSocket();
+    
     const [document, setDocument] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [numPages, setNumPages] = useState(null);
     const [signatures, setSignatures] = useState([]);
@@ -149,8 +177,77 @@ const DocumentView = () => {
     const [auditLogs, setAuditLogs] = useState([]);
     const [isFinalizing, setIsFinalizing] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-    const [mobileTab, setMobileTab] = useState('signatories'); // 'signatories' | 'audit'
+    const [mobileTab, setMobileTab] = useState('signatories');
     
+    const fetchDocumentData = useCallback(async (currentWidth = pdfWidth) => {
+        try {
+            // Only set loading for first fetch
+            if (!document) setLoading(true);
+            
+            const [docRes, sigRes, auditRes] = await Promise.all([
+                api.get(`/docs/${id}`),
+                api.get(`/signatures/${id}`),
+                api.get(`/audit/${id}`)
+            ]);
+            
+            setDocument(docRes.data);
+            setAuditLogs(auditRes.data);
+            
+            // Map signatures with scaling
+            const scale = currentWidth / 800;
+            const mappedSigs = sigRes.data.map(s => {
+                const clampedX = Math.max(0, Math.min(s.x, 800));
+                const clampedY = Math.max(0, Math.min(s.y, 2000));
+                
+                return {
+                    ...s,
+                    id: s._id,
+                    page: s.page,
+                    x: clampedX * scale,
+                    y: clampedY * scale,
+                    width: (s.width || 150) * scale,
+                    height: (s.height || 60) * scale,
+                    signatureData: s.signatureData
+                };
+            });
+            setSignatures(mappedSigs);
+            
+            setLoading(false);
+        } catch (err) {
+            console.error('Error fetching document data:', err);
+            setError(err.response?.data?.message || 'Failed to load document');
+            setLoading(false);
+        }
+    }, [id, pdfWidth, document]);
+
+    useEffect(() => {
+        fetchDocumentData();
+    }, [id]); // Initial load and on ID change
+
+    useEffect(() => {
+        if (pdfWidth) {
+            fetchDocumentData(pdfWidth);
+        }
+    }, [pdfWidth]);
+
+    useEffect(() => {
+         if (!socket || !id) return;
+
+         console.log(`--- [DocumentView] Joining room: ${id}`);
+         socket.emit('join-document', id);
+
+         socket.on('document-updated', (data) => {
+             console.log('--- Real-time: Document updated ---', data);
+             fetchDocumentData();
+         });
+
+         return () => {
+             console.log(`--- [DocumentView] Leaving room: ${id}`);
+             socket.emit('leave-document', id);
+             socket.off('document-updated');
+         };
+    }, [socket, id, fetchDocumentData]);
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -222,50 +319,6 @@ const DocumentView = () => {
     };
 
 
-    const fetchDoc = async () => {
-        try {
-            const res = await api.get(`/docs/${id}`);
-            setDocument(res.data);
-        } catch (error) {
-            console.error('Error fetching document:', error);
-            setError(error.response?.data?.message || error.message || 'Failed to load document');
-        }
-    };
-
-    const fetchAuditLogs = async () => {
-        try {
-            const res = await api.get(`/audit/${id}`);
-            setAuditLogs(res.data);
-        } catch (error) {
-            console.error('Error fetching audit logs:', error);
-        }
-    };
-
-    const fetchSignatures = async (currentWidth = pdfWidth) => {
-        try {
-            const res = await api.get(`/signatures/${id}`);
-            const scale = currentWidth / 800;
-            
-            const mappedSigs = res.data.map(s => {
-                const clampedX = Math.max(0, Math.min(s.x, 800));
-                const clampedY = Math.max(0, Math.min(s.y, 2000));
-                
-                return {
-                    ...s,
-                    id: s._id,
-                    page: s.page,
-                    x: clampedX * scale,
-                    y: clampedY * scale,
-                    width: (s.width || 150) * scale,
-                    height: (s.height || 60) * scale,
-                    signatureData: s.signatureData
-                };
-            });
-            setSignatures(mappedSigs);
-        } catch (error) {
-            console.error('Error fetching signatures:', error);
-        }
-    };
 
     const updatePdfWidth = () => {
         if (pdfWrapperRef.current) {
@@ -283,10 +336,6 @@ const DocumentView = () => {
         return () => window.removeEventListener('resize', updatePdfWidth);
     }, []);
 
-    // Re-fetch/re-scale signatures when width changes
-    useEffect(() => {
-        if (id) fetchSignatures(pdfWidth);
-    }, [pdfWidth, id]);
 
     const activeInvitation = document?.invitations?.find(inv => {
         const isPending = inv.status === 'Pending';
@@ -295,17 +344,6 @@ const DocumentView = () => {
         return isPending && !isExpired;
     });
 
-    useEffect(() => {
-        fetchDoc();
-        fetchAuditLogs();
-        fetchSignatures();
-    }, [id]);
-
-    useEffect(() => {
-        if (pdfWidth && document) {
-            fetchSignatures(pdfWidth);
-        }
-    }, [pdfWidth]);
 
     const onDocumentLoadSuccess = ({ numPages }) => {
         setNumPages(numPages);
@@ -391,7 +429,7 @@ const DocumentView = () => {
             
             setCurrentSignatureId(realId);
             setIsModalOpen(true);
-            fetchAuditLogs();
+            fetchDocumentData();
         } catch (error) {
             console.error('Error saving new signature:', error);
             setSignatures(prev => prev.filter(s => s.id !== tempId));
@@ -420,11 +458,11 @@ const DocumentView = () => {
             await api.put(`/signatures/${cleanId}`, {
                 signatureData: dataUrl
             });
-            fetchAuditLogs();
+            fetchDocumentData();
         } catch (error) {
             console.error('Error saving signature data:', error);
             toast.error('Failed to save signature');
-            fetchSignatures(); 
+            fetchDocumentData(); 
         }
     };
     
@@ -498,7 +536,7 @@ const DocumentView = () => {
         try {
             await api.post(`/docs/reject/${id}`);
             setDocument(prev => ({ ...prev, status: 'Rejected' }));
-            fetchAuditLogs();
+            fetchDocumentData();
         } catch (error) {
             console.error('Error rejecting:', error);
             alert('Failed to reject document');
@@ -565,9 +603,7 @@ const DocumentView = () => {
                 documentId={id} 
                 documentName={document.filename}
                 onSuccess={() => {
-                    fetchDoc();
-                    fetchAuditLogs();
-                    fetchSignatures();
+                    fetchDocumentData();
                 }}
             />
 
@@ -720,8 +756,7 @@ const DocumentView = () => {
                                 if (window.confirm('Delete all your signatures and start over?')) {
                                     try {
                                         await api.delete(`/signatures/all/${id}`);
-                                        setSignatures([]);
-                                        fetchAuditLogs();
+                                        fetchDocumentData();
                                     } catch (e) {
                                         console.error(e);
                                         toast.error('Failed to clear signatures');
@@ -804,7 +839,7 @@ const DocumentView = () => {
                                                     onDelete={(id) => {
                                                         if (activeInvitation) return;
                                                         const cleanId = id.toString().split('base64')[0].substring(0, 24);
-                                                        api.delete(`/signatures/${cleanId}`).then(() => fetchSignatures());
+                                                        api.delete(`/signatures/${cleanId}`).then(() => fetchDocumentData());
                                                     }}
                                                 />
                                             ))}

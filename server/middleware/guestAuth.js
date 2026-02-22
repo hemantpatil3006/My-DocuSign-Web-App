@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const guestAuth = (req, res, next) => {
     const authHeader = req.header('Authorization');
     const token = authHeader?.replace('Bearer ', '');
-    const shareToken = req.query?.token || req.body?.token;
+    const shareToken = req.query?.token || req.body?.token || req.params?.token;
 
     if (token) {
         try {
@@ -17,6 +17,7 @@ const guestAuth = (req, res, next) => {
 
     if (shareToken) {
         req.isGuest = true;
+        req.guestToken = shareToken; // Re-expose for controllers
         return next();
     }
 

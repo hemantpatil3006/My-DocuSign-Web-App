@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { Plus, LogOut, FileText, Search, Clock, CheckCircle, XCircle, MoreVertical, LayoutGrid, List as ListIcon, File, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
@@ -8,6 +9,7 @@ import ThemeToggle from '../components/ThemeToggle';
 
 const Dashboard = () => {
     const { user, logout } = useAuth();
+    const socket = useSocket();
     
     const [documents, setDocuments] = useState([]);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -22,11 +24,24 @@ const Dashboard = () => {
         } catch (error) {
             console.error('Error fetching documents:', error);
         }
-    }, []); // Empty dependency array means this function is memoized once
+    }, []); 
 
     useEffect(() => {
         fetchDocuments();
-    }, [fetchDocuments]); // Add fetchDocuments to useEffect's dependency array
+    }, [fetchDocuments]);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        socket.on('document-updated', (data) => {
+            console.log('--- Dashboard: Document updated real-time ---', data);
+            fetchDocuments();
+        });
+
+        return () => {
+            socket.off('document-updated');
+        };
+    }, [socket, fetchDocuments]);
 
     const getEffectiveStatus = (doc) => {
         if (doc.status === 'Rejected' && (!doc.invitations || doc.invitations.length === 0)) {

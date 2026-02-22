@@ -6,6 +6,7 @@ import api from '../services/api';
 import SignatureModal from '../components/SignatureModal';
 import { FileCheck, ArrowRight, X, AlertCircle, Download, PenTool, CheckCircle, Shield, Loader2, Menu } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import { useSocket } from '../context/SocketContext';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -137,6 +138,7 @@ const guestInfoSchema = z.object({
 
 const GuestSign = () => {
     const { token } = useParams();
+    const socket = useSocket();
     const [docData, setDocData] = useState(null);
     const [signatures, setSignatures] = useState([]);
     
@@ -154,20 +156,103 @@ const GuestSign = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentSignatureId, setCurrentSignatureId] = useState(null);
     const [isFinalized, setIsFinalized] = useState(false);
-    const [isInfoSubmitted, setIsInfoSubmitted] = useState(false);
+    const [isInfoSubmitted, setIsInfoSubmitted] = useState(() => {
+        const stored = localStorage.getItem(`guestInfo_${token}`);
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                return !!(parsed.name && parsed.email);
+            } catch (e) {
+                return false;
+            }
+        }
+        return false;
+    });
     const [guestRole, setGuestRole] = useState('Signer');
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-
     const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    const { register: infoRegister, handleSubmit: handleInfoSubmit, formState: { errors: infoErrors } } = useForm({
+    const fetchDocumentData = React.useCallback(async (currentWidth = pdfWidth) => {
+        try {
+            if (!docData) setLoading(true);
+            const res = await api.get(`/docs/public/${token}`);
+            setDocData(res.data);
+            setGuestRole(res.data.guestRole || 'Signer');
+            
+            if (res.data.guestName && res.data.guestEmail && !signerInfo.name) {
+                setSignerInfo({ name: res.data.guestName, email: res.data.guestEmail });
+                setIsInfoSubmitted(true);
+            }
+
+            const sigRes = await api.get(`/signatures/${res.data._id}?token=${token}`);
+            const scale = currentWidth / 800;
+            setSignatures(sigRes.data.map(s => ({ 
+                ...s, 
+                id: s._id, 
+                x: s.x * scale, 
+                y: s.y * scale,
+                width: (s.width || 150) * scale,
+                height: (s.height || 60) * scale
+            })));
+
+            if (res.data.status === 'Signed') {
+                setIsFinalized(true);
+            }
+            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching document:', error);
+            if (error.response?.status === 410) {
+                setError('This invitation link has expired. Please ask the owner to send a new invitation.');
+            } else if (error.response?.status === 404) {
+                setError('Invalid link or document not found. Please check your link or ask the owner for a new one.');
+            } else {
+                setError(error.response?.data?.message || 'Failed to load document');
+            }
+            setLoading(false);
+        }
+    }, [token, pdfWidth, docData, signerInfo.name]);
+
+    useEffect(() => {
+        fetchDocumentData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token]);
+
+    useEffect(() => {
+        if (pdfWidth && docData) {
+            fetchDocumentData(pdfWidth);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pdfWidth]);
+
+    useEffect(() => {
+        if (!socket || !docData?._id) return;
+
+        console.log(`--- [GuestSign] Joining room: ${docData._id}`);
+        socket.emit('join-document', docData._id);
+
+        socket.on('document-updated', (data) => {
+            console.log('--- Real-time (Guest): Document updated ---', data);
+            fetchDocumentData();
+        });
+
+        return () => {
+            console.log(`--- [GuestSign] Leaving room: ${docData._id}`);
+            socket.emit('leave-document', docData._id);
+            socket.off('document-updated');
+        };
+    }, [socket, docData?._id, fetchDocumentData]);
+
+    const methods = useForm({
         resolver: zodResolver(guestInfoSchema),
     });
+    const { register: infoRegister, handleSubmit: handleInfoSubmit, formState: { errors: infoErrors } } = methods;
 
     const onInfoSubmit = (data) => {
         setSignerInfo(data);
         localStorage.setItem(`guestInfo_${token}`, JSON.stringify(data));
         toast.success(`Welcome, ${data.name}`);
+        setIsInfoSubmitted(true);
     };
 
     const sensors = useSensors(
@@ -261,46 +346,6 @@ const GuestSign = () => {
         };
     }, []);
 
-    useEffect(() => {
-        const fetchDoc = async () => {
-            try {
-                const res = await api.get(`/docs/public/${token}`);
-                setDocData(res.data);
-                setGuestRole(res.data.guestRole || 'Signer');
-                
-                // Pre-fill information if available from invitation
-                if (res.data.guestName && res.data.guestEmail) {
-                    setSignerInfo({ name: res.data.guestName, email: res.data.guestEmail });
-                    setIsInfoSubmitted(true);
-                }
-
-                const sigRes = await api.get(`/signatures/${res.data._id}?token=${token}`);
-                const scale = pdfWidth / 800;
-                setSignatures(sigRes.data.map(s => ({ 
-                    ...s, 
-                    id: s._id, 
-                    x: s.x * scale, 
-                    y: s.y * scale,
-                    width: (s.width || 150) * scale,
-                    height: (s.height || 60) * scale
-                })));
-
-                if (res.data.status === 'Signed') {
-                    setIsFinalized(true);
-                }
-            } catch (error) {
-                console.error('Error fetching document:', error);
-                if (error.response?.status === 410) {
-                    setError('This invitation link has expired. Please ask the owner to send a new invitation.');
-                } else if (error.response?.status === 404) {
-                    setError('Invalid link or document not found. Please check your link or ask the owner for a new one.');
-                } else {
-                    setError(error.response?.data?.message || 'Failed to load document');
-                }
-            }
-        };
-        fetchDoc();
-    }, [token, pdfWidth]);
 
     const handleSaveSignature = async (signatureData) => {
         const sig = signatures.find(s => s.id === currentSignatureId);
@@ -468,7 +513,7 @@ const GuestSign = () => {
         );
     }
 
-    if (!docData) {
+    if (!docData || loading) {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
                  <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
