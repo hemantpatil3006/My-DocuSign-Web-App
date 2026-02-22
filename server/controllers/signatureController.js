@@ -114,7 +114,7 @@ exports.getSignatures = async (req, res) => {
 exports.updateSignature = async (req, res) => {
     try {
         const { id } = req.params;
-        const { token } = req.query;
+        const token = req.query?.token || req.guestToken;
 
         const validatedData = updateSignatureSchema.safeParse(req.body);
         if (!validatedData.success) {
@@ -175,7 +175,7 @@ exports.updateSignature = async (req, res) => {
 exports.deleteSignature = async (req, res) => {
     try {
         const { id } = req.params;
-        const { token } = req.query;
+        const token = req.query?.token || req.guestToken;
 
         const signature = await Signature.findById(id).populate('document');
         if (!signature) return res.status(404).json({ message: 'Signature not found' });
@@ -225,7 +225,7 @@ exports.finalizeDocument = async (req, res) => {
         // Authorization check for guest finalizing
         const { token: queryToken } = req.query;
         const { token: bodyToken } = req.body;
-        const token = queryToken || bodyToken;
+        const token = queryToken || bodyToken || req.guestToken;
         const isOwner = req.user && doc.owner.toString() === req.user.userId;
 
         console.log(`[DEBUG] finalizeDocument: Doc ${documentId}, isOwner: ${isOwner}, token: ${!!token}`);

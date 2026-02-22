@@ -113,18 +113,20 @@ const DraggableSignature = ({ sig, pageNumber, onDelete, onResize, disabled }) =
                         onClick={(e) => { e.stopPropagation(); onDelete(sig.id); }}
                         onMouseDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-[60] scale-100 md:scale-0 md:group-hover:scale-100 transition-transform"
+                        className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 transition-colors z-[60] scale-100 md:scale-0 md:group-hover:scale-100 transition-transform"
                     >
-                        <X size={12} strokeWidth={3} />
+                        <X size={16} strokeWidth={3} />
                     </button>
                     
                     {/* Resize Handle */}
                     <div
                         onMouseDown={handleResizeStart}
                         onTouchStart={handleResizeStart}
-                        className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-indigo-600 rounded-full cursor-nwse-resize shadow-md z-[60] scale-100 md:scale-0 md:group-hover:scale-100 transition-transform border-2 border-white"
+                        className="absolute -bottom-2 -right-2 w-6 h-6 bg-indigo-600 rounded-full cursor-nwse-resize shadow-md z-[60] scale-100 md:scale-0 md:group-hover:scale-100 transition-transform border-2 border-white flex items-center justify-center"
                         title="Resize"
-                    ></div>
+                    >
+                         <div className="w-1.5 h-1.5 border-r-2 border-b-2 border-white rotate-45 mb-0.5 mr-0.5"></div>
+                    </div>
                 </>
             )}
         </div>
