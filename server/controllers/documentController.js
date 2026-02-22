@@ -178,7 +178,12 @@ exports.downloadDocument = async (req, res) => {
 
         const { token } = req.query;
         const isOwner = req.user && doc.owner.toString() === req.user.userId;
-        const isAuthorizedGuest = token && doc.shareToken === token;
+        let isAuthorizedGuest = token && doc.shareToken === token;
+
+        if (!isAuthorizedGuest && token) {
+            const invitation = await Invitation.findOne({ token, document: req.params.id });
+            if (invitation) isAuthorizedGuest = true;
+        }
 
         if (!isOwner && !isAuthorizedGuest) {
             return res.status(403).json({ message: 'Not authorized' });
